@@ -1,0 +1,36 @@
+# Downloaded programs and generated state
+/downloads/
+/tools/
+/logs/
+/current
+/previous
+/.current.tmp
+/.state-*
+/.update.lock
+
+# Local investigation and command backups
+/upstream-install.sh
+/command-links-before.json
+
+# Credentials and local settings
+.env
+.env.*
+.claude/
+.claude.json
+*.pem
+*.key
+
+# Language and editor output
+__pycache__/
+*.py[cod]
+.venv/
+node_modules/
+.coverage
+htmlcov/
+.pytest_cache/
+.DS_Store
+.idea/
+.vscode/
+*.swp
+core
+core.*
