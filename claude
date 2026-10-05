@@ -28,4 +28,16 @@ export BUN_JSC_useDFGJIT="${BUN_JSC_useDFGJIT:-0}"
 export BUN_GC_TIMER_INTERVAL="${BUN_GC_TIMER_INTERVAL:-30000}"
 export PATH="$root/tools/ripgrep/usr/bin:$PATH"
 command -v rg >/dev/null || { echo "Missing ripgrep. Run: bash $root/setup.sh (or sudo apt install ripgrep)." >&2; exit 1; }
-exec "$root/tools/qemu/usr/bin/qemu-x86_64" -cpu max "$root/downloads/claude-$version" "$@"
+# Bash tool grep and find functions start CLAUDE_CODE_EXECPATH as ugrep or bfs.
+# claude-shell points that path here. Claude splits the prefix at " -".
+if [[ -z "${CLAUDE_CODE_SHELL_PREFIX:-}" && "$root" != *" -"* ]]; then
+  export CLAUDE_CODE_SHELL_PREFIX="$root/claude-shell"
+fi
+# A script does not receive argv[0], so match the fixed leading arguments.
+tool=()
+if [[ $# -ge 5 && $1 == -G && $2 == --ignore-files && $3 == --hidden && $4 == -I && $5 == --exclude-dir=.git ]]; then
+  tool=(-0 ugrep)
+elif [[ $# -ge 4 && $1 == -S && $2 == dfs && $3 == -regextype && $4 == findutils-default ]]; then
+  tool=(-0 bfs)
+fi
+exec "$root/tools/qemu/usr/bin/qemu-x86_64" -cpu max "${tool[@]}" "$root/downloads/claude-$version" "$@"

@@ -53,6 +53,7 @@ It supplies a dummy API key. It does not use your account credentials.
 The service sends fixed responses to the real Claude process.
 
 The test checks streamed responses, shell execution, file search, and tool results.
+A second conversation runs `grep` and `find` through Claude's shell functions.
 It also checks the final response and process exit status.
 The test writes its report to `logs/integration.json`.
 
@@ -149,3 +150,21 @@ four times, in alternating order. The table shows the median values.
 
 `--version` used 1.2 s of CPU time with both launchers.
 This comparison does not include a live model conversation.
+
+## Shell search function result
+
+Test date: 2026-10-05. Same P8600 and QEMU 8.2.2; Claude Code 2.1.289.
+Before the fix, `grep` and `find` in the Bash tool stopped with exit code 132.
+The local integration test showed the same `Illegal instruction` result.
+After the fix, both commands gave the same lines as the system tools.
+
+Each value is CPU time for one call with a warm file cache.
+
+| Command | System tool (s) | Claude function through QEMU (s) |
+| --- | --- | --- |
+| `grep -n` on one small file | 0.00 | 0.26 to 0.28 |
+| `grep -rn` on 753 files, 19 MiB | 0.06 | 0.67 to 0.71 |
+| `grep -rn` on 2411 files, 27 MiB | 0.06 to 0.07 | 1.36 to 1.41 |
+| `find -name` on 753 files | 0.00 | 0.37 to 0.38 |
+
+Each function call used about 20 to 23 MiB of peak memory.

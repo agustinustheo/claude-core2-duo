@@ -54,6 +54,25 @@ The launcher starts the binary through QEMU.
 If the launcher still fails, record the CPU model, OS, Claude version, and full error.
 A new release can use an instruction or system call that the emulator cannot process.
 
+## `grep` or `find` stops with `Illegal instruction` in the Bash tool
+
+**Cause:** Claude's shell snapshot replaces `grep` and `find` with functions.
+They start `CLAUDE_CODE_EXECPATH` as `ugrep` or `bfs`. Claude sets that variable
+to the native binary for each command, so the functions do not use QEMU.
+
+The launcher sets `CLAUDE_CODE_SHELL_PREFIX` to `claude-shell`. That script
+points `CLAUDE_CODE_EXECPATH` to the launcher. The launcher finds the fixed
+`ugrep` and `bfs` arguments and starts those modes through QEMU.
+Claude also uses this prefix for command hooks and stdio MCP servers.
+
+Start a new Claude session after an update. A running session keeps its old
+environment. If you set your own `CLAUDE_CODE_SHELL_PREFIX`, the launcher
+does not replace it, and this fault can return. `/usr/bin/grep` and
+`/usr/bin/find` always use the system tools.
+
+Do not add `Grep` to `--allowedTools` for this fault. That also stops the
+functions, but it changes the tool set and permission rules.
+
 ## Search fails although Claude starts
 
 Claude's internal search can start its own executable without QEMU.

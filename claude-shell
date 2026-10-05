@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# CLAUDE_CODE_SHELL_PREFIX target. Claude runs: claude-shell 'COMMAND'.
+# Claude sets CLAUDE_CODE_EXECPATH to the native binary for each command.
+# Its grep and find functions start that path without QEMU, so use the launcher.
+set -euo pipefail
+root=$(dirname "$(readlink -f -- "${BASH_SOURCE[0]}")")
+export CLAUDE_CODE_EXECPATH="$root/claude"
+# Claude writes Bash tool commands for its selected shell: bash or zsh.
+shell=${CLAUDE_CODE_SHELL:-${SHELL:-bash}}
+case "${shell##*/}" in bash|zsh) ;; *) shell=bash ;; esac
+exec "$shell" -c "$@"

@@ -25,6 +25,7 @@ print(json.dumps({"args": sys.argv[1:], "rg": shutil.which("rg"),
                  "builtin_rg": os.environ["USE_BUILTIN_RIPGREP"],
                  "dfg": os.environ["BUN_JSC_useDFGJIT"],
                  "gc_ms": os.environ["BUN_GC_TIMER_INTERVAL"],
+                 "prefix": os.environ.get("CLAUDE_CODE_SHELL_PREFIX"),
                  "cwd": os.getcwd()}))
 ''')
         self.link = self.root / "bin/claude"
@@ -58,6 +59,23 @@ print(json.dumps({"args": sys.argv[1:], "rg": shutil.which("rg"),
         self.assertEqual(result.returncode, 0, result.stderr)
         data = json.loads(result.stdout)
         self.assertEqual((data["dfg"], data["gc_ms"]), ("1", "1000"))
+
+    def test_shell_prefix_default_and_override(self):
+        data = json.loads(self.run_launcher("--version").stdout)
+        self.assertEqual(data["prefix"], str(self.root / "claude-shell"))
+        data = json.loads(self.run_launcher("--version", CLAUDE_CODE_SHELL_PREFIX="/opt/log").stdout)
+        self.assertEqual(data["prefix"], "/opt/log")
+
+    def test_embedded_search_tools_keep_their_names(self):
+        binary = str(self.root / "downloads/claude-2.1.263")
+        ugrep = ["-G", "--ignore-files", "--hidden", "-I", "--exclude-dir=.git", "-rn", "a b"]
+        bfs = ["-S", "dfs", "-regextype", "findutils-default", ".", "-name", "*.txt"]
+        for name, args in (("ugrep", ugrep), ("bfs", bfs)):
+            result = self.run_launcher(*args)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(json.loads(result.stdout)["args"], ["-cpu", "max", "-0", name, binary, *args])
+        result = self.run_launcher("-G", "--ignore-files")
+        self.assertEqual(json.loads(result.stdout)["args"], ["-cpu", "max", binary, "-G", "--ignore-files"])
 
     def test_missing_qemu_has_setup_instruction(self):
         (self.root / "tools/qemu/usr/bin/qemu-x86_64").unlink()

@@ -8,6 +8,7 @@ Add a regression test when you fix a fault.
 | File | Purpose |
 | --- | --- |
 | `claude` | Start QEMU and supply the search tool path |
+| `claude-shell` | Run Claude's shell commands so `grep` and `find` use QEMU |
 | `setup.sh` | Download and check QEMU and ripgrep |
 | `update.py` | Verify a Claude release and select it |
 | `build.py` | Check Python and shell syntax |

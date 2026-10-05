@@ -86,6 +86,9 @@ To return to that version, supply its number to `update`.
   It disables the DFG JIT compiler and runs the periodic GC every 30 seconds.
   In a local test, CPU time decreased by about 29%.
   To use the Bun defaults, set `BUN_JSC_useDFGJIT=1` and `BUN_GC_TIMER_INTERVAL=1000`.
+- Claude's Bash tool replaces `grep` and `find` with functions that start its own binary.
+  The launcher sets `CLAUDE_CODE_SHELL_PREFIX` to `claude-shell`, which runs them through QEMU.
+  Each call has a start cost of about 0.25 s of CPU time. A set prefix is not replaced.
 - Interactive startup and a local API test passed. A live account conversation is not yet verified.
 - Background sessions and other features that start Claude directly can bypass QEMU. These features are not yet verified.
 - External tools must also support your CPU. Emulation does not extend to all child programs.
