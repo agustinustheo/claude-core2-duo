@@ -82,6 +82,10 @@ To return to that version, supply its number to `update`.
 ## Limits
 
 - Emulation is slower. One help command took 6.3 seconds and used about 214 MiB of memory.
+- The launcher changes two JavaScript engine settings to decrease emulation CPU use.
+  It disables the DFG JIT compiler and runs the periodic GC every 30 seconds.
+  In a local test, CPU time decreased by about 29%.
+  To use the Bun defaults, set `BUN_JSC_useDFGJIT=1` and `BUN_GC_TIMER_INTERVAL=1000`.
 - Interactive startup and a local API test passed. A live account conversation is not yet verified.
 - Background sessions and other features that start Claude directly can bypass QEMU. These features are not yet verified.
 - External tools must also support your CPU. Emulation does not extend to all child programs.

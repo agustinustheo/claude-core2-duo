@@ -23,6 +23,8 @@ import json, os, shutil, sys
 print(json.dumps({"args": sys.argv[1:], "rg": shutil.which("rg"),
                  "updater": os.environ["DISABLE_AUTOUPDATER"],
                  "builtin_rg": os.environ["USE_BUILTIN_RIPGREP"],
+                 "dfg": os.environ["BUN_JSC_useDFGJIT"],
+                 "gc_ms": os.environ["BUN_GC_TIMER_INTERVAL"],
                  "cwd": os.getcwd()}))
 ''')
         self.link = self.root / "bin/claude"
@@ -35,9 +37,9 @@ print(json.dumps({"args": sys.argv[1:], "rg": shutil.which("rg"),
         path.write_text(text)
         path.chmod(0o755)
 
-    def run_launcher(self, *args):
+    def run_launcher(self, *args, **extra):
         return subprocess.run([str(self.link), *args], cwd=self.root,
-                              env={"PATH": "/usr/bin:/bin", "HOME": str(self.root)},
+                              env={"PATH": "/usr/bin:/bin", "HOME": str(self.root), **extra},
                               capture_output=True, text=True, timeout=10)
 
     def test_symlink_spaces_arguments_and_local_rg(self):
@@ -48,7 +50,14 @@ print(json.dumps({"args": sys.argv[1:], "rg": shutil.which("rg"),
                                         "-p", "prompt with spaces", "--dangerously-skip-permissions"])
         self.assertEqual(data["rg"], str(self.root / "tools/ripgrep/usr/bin/rg"))
         self.assertEqual((data["updater"], data["builtin_rg"]), ("1", "0"))
+        self.assertEqual((data["dfg"], data["gc_ms"]), ("0", "30000"))
         self.assertEqual(data["cwd"], str(self.root))
+
+    def test_engine_settings_can_be_restored(self):
+        result = self.run_launcher("--version", BUN_JSC_useDFGJIT="1", BUN_GC_TIMER_INTERVAL="1000")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        data = json.loads(result.stdout)
+        self.assertEqual((data["dfg"], data["gc_ms"]), ("1", "1000"))
 
     def test_missing_qemu_has_setup_instruction(self):
         (self.root / "tools/qemu/usr/bin/qemu-x86_64").unlink()

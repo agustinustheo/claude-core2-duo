@@ -101,3 +101,25 @@ can prioritize the slice during contention. No weight is required by the script.
 Initialization still depends on machine load and QEMU. If it exceeds T3's
 remaining deadline, the timeout needs an upstream or separately tested change.
 The launcher does not fake authentication or initialization results.
+
+## QEMU uses much CPU
+
+**Cause:** QEMU emulates each instruction. It must also emulate the JIT compilers
+in Claude's JavaScript engine, and then translate the code that they make.
+
+The launcher sets `BUN_JSC_useDFGJIT=0`. This disables the DFG JIT compiler.
+It also sets `BUN_GC_TIMER_INTERVAL=30000`. The periodic GC then runs every 30 seconds.
+Memory pressure still starts GC at other times.
+On the P8600, these settings decreased CPU time for one local conversation by about 29%.
+An idle session used less than 1% of one core with and without this setting.
+High CPU use during startup, responses, and tool calls is expected.
+
+Do not disable all JIT compilers. That did not decrease CPU time.
+Do not set `BUN_JSC_numberOfGCMarkers=1`. That almost doubled CPU time.
+Do not decrease the JIT thresholds. That increased CPU time and memory use.
+A different QEMU `-cpu` model did not change CPU time.
+QEMU 10.2, 11.0, and 11.1 used slightly more CPU time than QEMU 8.2.2.
+GC heap growth and allocator settings did not change CPU time.
+
+If a long session becomes slower, start it with `BUN_JSC_useDFGJIT=1 ./claude`.
+If memory use increases too much, start it with `BUN_GC_TIMER_INTERVAL=1000 ./claude`.

@@ -22,6 +22,10 @@ version=$(cat "$root/current")
 export DISABLE_AUTOUPDATER=1
 # Embedded rg respawns the native executable without QEMU. Use host rg.
 export USE_BUILTIN_RIPGREP=0
+# QEMU must emulate DFG compilation and then translate its output. Set 1 to restore it.
+export BUN_JSC_useDFGJIT="${BUN_JSC_useDFGJIT:-0}"
+# Periodic GC passes are expensive under emulation. Memory pressure still starts GC.
+export BUN_GC_TIMER_INTERVAL="${BUN_GC_TIMER_INTERVAL:-30000}"
 export PATH="$root/tools/ripgrep/usr/bin:$PATH"
 command -v rg >/dev/null || { echo "Missing ripgrep. Run: bash $root/setup.sh (or sudo apt install ripgrep)." >&2; exit 1; }
 exec "$root/tools/qemu/usr/bin/qemu-x86_64" -cpu max "$root/downloads/claude-$version" "$@"
