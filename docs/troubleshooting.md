@@ -81,3 +81,23 @@ Do not disable the checksum check.
 
 If setup reports a missing shared library, install the matching distribution dependency.
 The local setup checks each tool before it copies the files into place.
+
+## T3 cannot verify authentication on a CPU-limited host
+
+T3 can time out before QEMU finishes startup. The tested T3 release has a
+four-second version deadline and a 25-second initialization deadline.
+A successful `claude auth status` does not prove that initialization meets them.
+
+Use the optional `claude-scoped` launcher with a systemd user manager.
+Set T3's Claude binary path to that launcher. Changing PATH alone does not fix
+an existing absolute binary path in T3 settings.
+
+The scoped launcher reports the selected installed version without emulation
+for `--version` alone. Real sessions run in `claude.slice`, outside the parent
+application's CPU quota. This can increase host CPU use and temperature.
+It does not remove limits on higher-level systemd slices. A separate CPU weight
+can prioritize the slice during contention. No weight is required by the script.
+
+Initialization still depends on machine load and QEMU. If it exceeds T3's
+remaining deadline, the timeout needs an upstream or separately tested change.
+The launcher does not fake authentication or initialization results.

@@ -47,6 +47,27 @@ For future terminals, add the equivalent line to the end of `~/.bashrc`.
 Use the full repository path in that line.
 Check `type -a claude` if another installation still starts.
 
+## Run outside a parent CPU limit
+
+On Linux with a systemd user manager, use `./claude-scoped` to start Claude
+in a separate `claude.slice`. This keeps a parent application's CPU quota from
+slowing Claude startup. It does not change that parent application's quota.
+
+```bash
+./claude-scoped --version
+./claude-scoped
+```
+
+The scope keeps the caller's directory, environment, arguments, and terminal.
+For `--version` alone, it reports the selected installed release without starting
+QEMU. The updater verifies and tests that release before selecting it. This fast
+version report does not prove that the current runtime can start. Use the normal
+`./claude --version` command to test the emulator.
+It does not add a CPU quota. Claude and its child tools can use more CPU and
+produce more heat. Limits on higher-level systemd slices still apply.
+The normal `./claude` launcher continues to inherit the caller's limits.
+A systemd user session is required. A failed scope creation stops the launcher.
+
 ## Update or select a version
 
 ```bash

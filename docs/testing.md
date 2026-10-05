@@ -71,3 +71,17 @@ Do not report hardware support from `--version` alone.
 - [Bun CPU requirements](https://bun.sh/docs/installation)
 - [Upstream report for CPUs without SSE4.2](https://github.com/anthropics/claude-code/issues/85571)
 - [QEMU user-mode documentation](https://www.qemu.org/docs/master/user/main.html)
+
+## Scoped startup result
+
+Test date: 2026-10-05. Same P8600 and QEMU 8.2.2; Claude Code 2.1.289.
+A stream-JSON initialization check under a shared one-core quota did not finish
+within 70 seconds. Separate-scope checks completed in 28.2 and 24.3 seconds.
+A later check with slice CPU weight 200 completed in 22.3 seconds.
+These are individual measurements under changing load, not controlled benchmarks.
+No model prompt was sent by these initialization checks.
+The fast scoped `--version` path completed in 0.04 seconds.
+
+Build checks, 13 unit tests, and the local API integration fixture passed.
+The fixture confirmed streaming, shell execution, search, and tool results.
+This does not prove a live model conversation or future T3 startup reliability.
