@@ -121,6 +121,113 @@ Initialization still depends on machine load and QEMU. If it exceeds T3's
 remaining deadline, the timeout needs an upstream or separately tested change.
 The launcher does not fake authentication or initialization results.
 
+### `Could not verify Claude authentication status from initialization result`
+
+T3 0.0.45 shows this warning when its capability probe returns no result.
+The probe has a 25-second deadline. T3 hides the error, so this warning alone
+does not prove a timeout or a login fault.
+T3 caches the result for five minutes, including a failed result.
+A conversation can work while the provider status still shows this warning.
+
+Use an explicit provider status refresh after the five-minute probe cache
+expires. A workspace refresh can leave the original provider status in place.
+Do not sign out only because of this warning.
+The probe disables user hooks and MCP connections, but still loads plugins
+and commands. CPU load during startup can make the probe miss its deadline.
+A longer probe deadline and a shorter cache time for failed probes require
+a change in T3. They cannot be set in this launcher.
+
+## T3 hides Codex models after a provider timeout
+
+T3 0.0.45 gives the Codex provider check 10 seconds. This check starts the
+app server and reads the account, skills, models, and usage limits.
+If the check times out, T3 publishes an error with an empty model list.
+An existing Codex conversation can still work.
+
+`Timed out while checking Codex app-server provider status` does not mean
+that the executable is missing. A successful version check alone does not
+test all provider checks. Retry the provider check after machine load falls.
+Do not change the binary path only because of this timeout.
+
+## T3 keeps an old provider warning
+
+Check the provider's `checkedAt` time. A new thread or a workspace refresh
+does not always run a new authentication probe. In T3 0.0.45, a refresh with
+both `instanceId` and `cwd` updates workspace skills and commands. It can
+keep the original provider status, including a startup error.
+
+An explicit `server.refreshProviders` request with `instanceId` and without
+`cwd` runs the provider status check. This request needs an authenticated
+T3 client. It does not send a model prompt or stop an existing conversation.
+Refresh one provider at a time on this two-core host.
+
+The five-minute Claude capability cache and the displayed provider status
+are separate. Waiting for the cache to expire does not refresh the display.
+Do not remove MCP servers or sign out only to clear an old warning.
+
+### Refresh the provider status after each T3 start
+
+On the tested host, a user service runs this refresh after each T3 start.
+The script is `~/.local/bin/t3-refresh-providers`. The unit is
+`~/.config/systemd/user/t3-provider-refresh.service`. They are not part of
+this repository.
+
+The script waits for the T3 server. Then it waits until 60 seconds after
+the T3 start and until the one-minute load average is 1.5 or less. The load
+wait stops after five minutes. Then the script refreshes each enabled
+provider, one at a time. It tries a provider again two times if the status
+is not `ready`. It uses a 20-minute T3 session and revokes it at the end.
+
+To refresh now, run `t3-refresh-providers --now`. To see the last result:
+
+```bash
+journalctl --user -u t3-provider-refresh.service -n 20
+```
+
+To stop the automatic refresh:
+
+```bash
+systemctl --user disable t3-provider-refresh.service
+```
+
+The refresh does not make T3 startup faster. A new thread can still fail
+before the refresh completes. The T3 deadlines and CPU quota do not change.
+
+## Existing T3 threads work, but new sessions are slow
+
+An existing session can keep its provider process. A new session must start
+that process and load its settings, plugins, hooks, and MCP servers.
+A session restored after a server restart must also start a new process.
+
+On the tested host, T3 and Codex share a one-core CPU quota. Git checks and
+other child processes use the same quota. Claude uses a separate slice,
+but QEMU still needs CPU time. Simultaneous startup work can delay the
+provider status checks past their deadlines.
+
+Check the service quota and current memory use:
+
+```bash
+systemctl --user show t3code.service -p CPUQuotaPerSecUSec -p CPUWeight
+free -h
+```
+
+Review plugins and MCP servers that load at each session start. A tool with
+`needs-auth` status is not ready. Remove unused tools through the application
+that manages them. Do not delete synchronized plugin files by hand.
+For the scoped launcher, the local `fast` profile skips automatic MCP
+connections. See the startup profile instructions in the README.
+An MCP server supplied with `--mcp-config` can still connect. T3 supplies its
+own server this way. To restore automatic connections for future sessions,
+write `full` to `tools/startup-profile`.
+If a hook reports `python: command not found`, its command must use an
+available Python interpreter. That error does not prove a startup timeout.
+
+For T3, a longer probe deadline, background retries, and retention of known
+models after a failed check can improve startup reliability. These changes
+need a T3 change. This launcher cannot set those probe options.
+Do not use Claude's `--bare` mode to fix an OAuth account: that mode does
+not read OAuth credentials.
+
 ## QEMU uses much CPU
 
 **Cause:** QEMU emulates each instruction. It must also emulate the JIT compilers

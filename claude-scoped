@@ -11,5 +11,24 @@ if [[ $# -eq 1 && "$1" == "--version" ]]; then
   printf '%s (Claude Code)\n' "$version"
   exit 0
 fi
+profile_args=()
+# This optional local file selects a profile for future processes only.
+if [[ -f "$root/tools/startup-profile" ]]; then
+  profile=$(cat "$root/tools/startup-profile")
+  case "$profile" in
+    full|'') ;;
+    fast)
+      case "${1:-}" in
+        update|upgrade|install|--help|-h) ;;
+        *)
+          export ENABLE_CLAUDEAI_MCP_SERVERS=false
+          export CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS=1
+          profile_args=(--strict-mcp-config)
+          ;;
+      esac
+      ;;
+    *) echo 'Invalid startup profile. Use fast or full.' >&2; exit 1 ;;
+  esac
+fi
 exec /usr/bin/systemd-run --user --scope --quiet --collect \
-  --slice=claude.slice "$root/claude" "$@"
+  --slice=claude.slice "$root/claude" "${profile_args[@]}" "$@"

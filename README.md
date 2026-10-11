@@ -68,6 +68,24 @@ produce more heat. Limits on higher-level systemd slices still apply.
 The normal `./claude` launcher continues to inherit the caller's limits.
 A systemd user session is required. A failed scope creation stops the launcher.
 
+### Start with fewer MCP tools
+
+The scoped launcher can skip automatic cloud and plugin MCP connections.
+Built-in tools and skills remain available. It keeps OAuth authentication.
+MCP servers supplied with `--mcp-config` remain available, including T3's
+own connection. This profile does not disable plugin hooks.
+
+From this repository, select the profile for future sessions:
+
+```bash
+mkdir -p tools
+printf 'fast\n' > tools/startup-profile
+```
+
+To restore automatic MCP connections, write `full` to the same file.
+The profile file is local and is not stored in Git. Running sessions keep
+their current tools. QEMU still adds startup time.
+
 ## Update or select a version
 
 ```bash

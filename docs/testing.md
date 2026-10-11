@@ -168,3 +168,128 @@ Each value is CPU time for one call with a warm file cache.
 | `find -name` on 753 files | 0.00 | 0.37 to 0.38 |
 
 Each function call used about 20 to 23 MiB of peak memory.
+
+## Provider status investigation
+
+Test date: 2026-10-10. Intel Core 2 Duo P8600, Claude Code 2.1.295,
+and T3 0.0.45. The scoped launcher had no slice CPU quota.
+
+Two direct stream-JSON initialization checks returned account information
+in 17.6 and 14.3 seconds. Both disabled hooks and MCP connections, as the
+T3 capability probe does. The second used the T3 server environment and
+working directory, with a standard system PATH.
+These checks did not send a model prompt or use the T3 SDK itself.
+
+The installed T3 code sets a 25-second capability probe deadline and caches
+the result for five minutes. It also caches failed results and hides the
+probe error. A timeout is a possible cause of the provider warning, but
+these checks did not reproduce that failure.
+
+## New session startup investigation
+
+Test date: 2026-10-11. Same P8600; Claude Code 2.1.295, QEMU 8.2.2,
+Codex 0.162.0, and T3 0.0.45.
+
+The T3 service and Codex shared a 100% CPU quota, equal to one core.
+The service CPU weight was 50. Claude ran in a separate slice with no quota
+and CPU weight 200. The host had 5.7 GiB of available memory and no swap use.
+The service had recorded 35.3 seconds of CPU throttling since startup.
+
+The trace showed a Codex provider probe interrupted after 11.1 seconds at
+T3 startup. The full status check took 13.8 seconds, including cleanup.
+The Claude status check took 31.3 seconds. The trace does not expose the
+Claude probe error. Git and pull request checks also ran during startup.
+
+A later direct Codex check completed initialization, account lookup, skills,
+models, and rate limits in 2.0 seconds. A T3 Codex session started in 2.7 seconds.
+These values do not include model response time.
+
+Direct Claude initialization took 14.2 seconds with hooks and MCP connections
+disabled. With the running T3 Claude environment and a project directory,
+initialization took 20.3 seconds. The checks used different settings and
+directories. They are not a controlled comparison.
+The project check found 11 enabled plugins and many MCP servers with
+`needs-auth` or `failed` status. A SessionStart hook failed because it called
+`python`, which was not available. The host provides `python3`.
+
+A resumed T3 Claude session took 47.9 seconds from session creation to
+`status:requesting`. This interval can include initialization, session restore,
+hooks, and MCP connections. It does not isolate one cause.
+
+No model prompt was sent by the direct checks. They do not prove a live
+account conversation. Build checks and 19 unit tests passed with a standard
+system PATH. No launcher code changed.
+
+## Fast MCP startup profile
+
+Test date: 2026-10-11. Same P8600, Claude Code 2.1.295, and QEMU 8.2.2.
+The scoped launcher now reads an optional local `tools/startup-profile` file.
+The `fast` profile disables automatic cloud and plugin MCP connections.
+It keeps built-in tools, skills, hooks, and explicit MCP configurations.
+
+One baseline initialization check took 18.6 seconds and listed 42 MCP servers.
+Two checks through a temporary fast-profile launcher took 17.8 and 17.4 seconds.
+The second check included an explicit local MCP fixture named `t3-code`.
+Only that server was listed, and its status was `connected`.
+The selected scoped launcher then took 19.3 seconds and listed no MCP servers.
+A local integration test ran at the same time as that last check.
+These measurements do not establish a consistent startup speed increase.
+They confirm that automatic MCP connections are excluded.
+
+Account metadata was present in each initialization result. No model prompt
+was sent by these checks. The explicit MCP fixture does not test T3's live
+MCP service. Build checks, 20 unit tests, and the standard local API integration
+test passed. The same API fixture also passed through the selected scoped
+launcher. That check supplied the systemd user runtime directory and used a
+standard system PATH. It checked streaming, shell execution, file search,
+and the emulated `grep` and `find` functions.
+The fixture does not prove a live account conversation.
+
+## Fresh T3 provider status checks
+
+Test date: 2026-10-11. Same P8600, T3 0.0.45, Claude Code 2.1.295,
+QEMU 8.2.2, and Codex 0.162.0. The fast MCP profile remained selected.
+
+Both displayed status snapshots still had boot-time `checkedAt` values
+when checked more than one hour later. No later authentication probe was
+present in the inspected trace. Workspace refreshes did not replace them.
+
+The installed T3 CLI issued a short-lived local diagnostic session.
+An authenticated WebSocket request refreshed each provider by `instanceId`,
+without a `cwd`. The requests ran in sequence.
+
+| Provider | Full status check (s) | Status | Authentication | Models |
+| --- | --- | --- | --- | --- |
+| Codex | 2.01 | ready | authenticated | 8 |
+| Claude | 25.89 | ready | authenticated | 13 |
+
+T3 saved both new status snapshots. The Claude process used the selected
+fast profile and strict MCP configuration. The full Claude status check
+includes work after initialization, so 25.89 seconds does not mean that
+its 25-second initialization deadline failed.
+
+These were real T3 status checks with the current account configuration.
+They did not send a model prompt or test a live model conversation.
+The startup deadlines and service CPU quota did not change. Startup load
+can still cause another timeout.
+
+## Automatic provider status refresh
+
+Test date: 2026-10-11. Same P8600, T3 0.0.45, Claude Code 2.1.295,
+QEMU 8.2.2, and Codex 0.162.0. The fast MCP profile remained selected.
+
+A manual run of `t3-refresh-providers --now` used a standard system PATH.
+It took 25.5 seconds in total and revoked its T3 session.
+
+| Provider | Status check (s) | Status | Authentication | Models |
+| --- | --- | --- | --- | --- |
+| Codex | 1.9 | ready | authenticated | 8 |
+| Claude | 17.0 | ready | authenticated | 13 |
+
+A run through `t3-provider-refresh.service` one minute later also gave
+`ready` for both providers. The Claude value was 0.1 seconds because T3
+used its five-minute probe cache.
+
+T3 was not restarted and the host was not rebooted for this test.
+The boot-time start of the unit is not yet tested.
+These checks did not send a model prompt or test a live model conversation.
