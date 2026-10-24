@@ -293,3 +293,76 @@ used its five-minute probe cache.
 T3 was not restarted and the host was not rebooted for this test.
 The boot-time start of the unit is not yet tested.
 These checks did not send a model prompt or test a live model conversation.
+
+## Provider cache retry correction
+
+Test date: 2026-10-13. Intel Core 2 Duo P8600, Ubuntu 24.04,
+T3 0.0.45, Claude Code 2.1.295, and QEMU 8.2.2.
+The fast MCP profile remained selected.
+
+The startup refresh service failed after three Claude checks. The checks
+were 45 seconds apart and each returned the initialization warning in
+0.0 to 0.1 seconds. All retries ran within the five-minute probe cache.
+
+A manual refresh after cache expiry returned `ready`, `authenticated`,
+and 13 Claude models. The Claude status check took 30.8 seconds.
+A separate read of the saved T3 status confirmed the same result.
+These checks did not send a model prompt.
+
+The local refresh helper now waits 310 seconds after the Claude
+initialization warning. Other failures keep the 45-second wait.
+The diagnostic session lasts 30 minutes, longer than the service limit.
+The helper revokes the session when it finishes.
+A manual service start finished with exit code 0. Both providers were
+`ready`. The Claude check used the successful probe cache.
+A second service start ran a fresh Claude check in 19.4 seconds. It also
+returned `ready`, `authenticated`, and 13 models, and exited with code 0.
+The host was not rebooted after the helper change.
+
+Build checks, 20 project unit tests, and six local helper checks passed
+with a standard system PATH. The helper checks cover cache expiry,
+retry limits, other failures, and session duration. They use no real waits
+or account credentials. Their files and the helper backup are under
+`tools/diagnostics/` and are not stored in Git.
+The local API integration test also passed. It checked streaming, shell
+execution, search, tool results, and the `grep` and `find` shell functions.
+This fixture does not prove a live account conversation.
+
+## Provider refresh after the T3 0.1 update
+
+Test date: 2026-10-24. Intel Core 2 Duo P8600, Ubuntu 24.04,
+T3 0.1.1, Claude Code 2.1.308, and QEMU 8.2.2.
+
+After the boots on 2026-10-21 and 2026-10-24, the refresh service failed
+before it checked a provider. T3 rejected its WebSocket request with
+`426 Upgrade Required` and `orchestration_protocol_incompatible`.
+After the second boot, Codex showed `workspace routing discovery timed out`.
+
+The helper now uses a WebSocket ticket and protocol version 2.
+A manual service start finished with exit code 0. Codex returned `ready`,
+`authenticated`, and 8 models in 5.0 seconds. Claude returned `ready`,
+`authenticated`, and 13 models in 29.1 seconds. The one-minute load average
+was 5.52, so the load wait stopped at its limit.
+These checks did not send a model prompt.
+
+The six local helper checks passed with a standard system PATH.
+The host was not rebooted after this helper change.
+
+## Provider status file and Telegram controls
+
+Test date: 2026-10-24. Same host and versions as the T3 0.1 update test.
+
+After a reboot at 01:58, T3's startup check returned
+`Timed out after 25s while checking Claude account status`. The refresh
+service ran without manual action. Codex returned `ready` in 1.9 seconds
+and Claude returned `ready` in 18.8 seconds. The service exited with code 0.
+
+An hourly `--check` run found both providers `ready` and did not refresh
+them. It used 8.5 seconds of CPU time and wrote the status file.
+
+The Telegram status bot was tested with the same systemd sandbox settings
+as its service. It read the T3 unit state, the local server answer, the
+tunnel process, and the status file. It started a user unit. Its 20 unit
+tests passed with a standard system PATH. The Telegram buttons were not
+yet pressed in the live chat. A T3 restart from Telegram is not yet tested.
+

@@ -176,9 +176,22 @@ The script waits for the T3 server. Then it waits until 60 seconds after
 the T3 start and until the one-minute load average is 1.5 or less. The load
 wait stops after five minutes. Then the script refreshes each enabled
 provider, one at a time. It tries a provider again two times if the status
-is not `ready`. It uses a 20-minute T3 session and revokes it at the end.
+is not `ready`. It uses a 30-minute T3 session and revokes it at the end.
+For the Claude initialization warning, it waits 310 seconds before each
+retry. Other failures use a 45-second wait.
 
-To refresh now, run `t3-refresh-providers --now`. To see the last result:
+The old helper waited only 45 seconds for each retry. All three requests
+could return the same cached failure. The service then stopped before
+the five-minute cache expired. A new request after cache expiry returned
+`ready` on the tested host. A short retry interval cannot clear this cache.
+
+To refresh now, run `t3-refresh-providers --now`. Each run writes its result
+to `~/.local/state/t3-provider-refresh/status.json`. This file does not contain
+account email addresses or IDs. The Telegram status bot reads it.
+
+The `t3-provider-check.timer` unit starts `t3-refresh-providers --check` every
+hour. This mode reads the saved T3 status. It refreshes only providers that
+are not `ready`. To see the last result:
 
 ```bash
 journalctl --user -u t3-provider-refresh.service -n 20
@@ -192,6 +205,21 @@ systemctl --user disable t3-provider-refresh.service
 
 The refresh does not make T3 startup faster. A new thread can still fail
 before the refresh completes. The T3 deadlines and CPU quota do not change.
+
+#### The refresh service stops with `426 Upgrade Required`
+
+**Cause:** T3 0.1 changed its WebSocket connection rules. The helper sent
+only a bearer token to `/ws`. T3 0.1.1 rejects that request with
+`orchestration_protocol_incompatible`. The service then stopped before it
+checked a provider, so the startup warning stayed after each reboot.
+
+The helper now gets a one-use ticket from `POST /api/auth/websocket-ticket`.
+Then it opens `/ws` with `wsTicket` and `orchestrationProtocol=2`.
+The other RPC requests did not change.
+
+If a later T3 release changes the protocol again, the log shows the server
+reason after the status line. Compare it with the T3 web client before you
+change the helper.
 
 ## Existing T3 threads work, but new sessions are slow
 
