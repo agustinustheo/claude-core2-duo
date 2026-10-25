@@ -277,3 +277,33 @@ GC heap growth and allocator settings did not change CPU time.
 
 If a long session becomes slower, start it with `BUN_JSC_useDFGJIT=1 ./claude`.
 If memory use increases too much, start it with `BUN_GC_TIMER_INTERVAL=1000 ./claude`.
+
+## All user services stop, but the computer stays on
+
+**Symptom:** T3 Code, the Telegram status bot, Claude, and Codex stop at the
+same time. The computer does not stop. The services start again only after a
+login.
+
+**Cause found on 2026-10-25:** a test sent `SIGTERM` to process group `-1`.
+On Linux, `kill(-1)` sends the signal to all processes of the user. The desktop
+session, the session D-Bus, and the user service manager stopped. The user
+service manager controls T3 Code and the bot. Linger starts the user service
+manager only at boot or at login, so the services stayed stopped for 7 h 48 min.
+
+The journal shows `systemd[<pid>]: Activating special unit exit.target` and
+no `Stopping user@1000.service` line from PID 1.
+
+**Recovery:** the drop-in
+`/etc/systemd/system/user@1000.service.d/50-restart-after-exit.conf` sets
+`Restart=always` and `RestartSec=5`. If the user service manager exits, the
+system starts it again after 5 seconds. A normal stop (logout without linger,
+or shutdown) does not start it again. A test with a temporary user confirmed
+both cases. The restart was not tested on the real account, because that test
+stops the current agent session.
+
+Do not run tests that can signal process groups in the normal session. To
+isolate `kill(-1)`, run them in a private PID namespace:
+
+```bash
+unshare --user --map-root-user --pid --fork --mount-proc <command>
+```
